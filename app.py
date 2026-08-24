@@ -217,6 +217,57 @@ def save_labels(df):
         index=False,
     )
 
+# ============================================================
+# STARTUP PRECHECKS
+# ============================================================
+
+def run_prechecks():
+    """Check for the most common environment issues up front, so problems
+    surface clearly at startup instead of crashing mid-action.
+    """
+
+    problems = []
+
+    # 1. Face detection data file actually loaded
+    if face_cascade.empty():
+        problems.append(
+            "Face detection data failed to load. Fix: "
+            "pip uninstall opencv-python opencv-contrib-python -y && "
+            "pip install opencv-contrib-python==4.10.0.84"
+        )
+
+    # 2. LBPH recognizer available
+    # Only ships with opencv-contrib, not plain opencv-python
+    if not hasattr(cv2, "face"):
+        problems.append(
+            "cv2.face module missing (wrong OpenCV package installed). Fix: "
+            "pip uninstall opencv-python opencv-contrib-python -y && "
+            "pip install opencv-contrib-python==4.10.0.84"
+        )
+
+    # 3. dataset/ and data/ folders are actually writable
+    for folder in (DATASET_DIR, "data"):
+        try:
+            test_file = os.path.join(
+                folder,
+                ".write_test",
+            )
+
+            with open(test_file, "w") as f:
+                f.write("ok")
+
+            os.remove(test_file)
+
+        except Exception:
+            problems.append(
+                f"Cannot write to '{folder}/' folder — likely a "
+                f"permissions-restricted campus account. Try running "
+                f"the app from a folder you fully own, e.g. Desktop, "
+                f"not a shared/managed drive."
+            )
+
+    return problems
+
 
 # ============================================================
 # SIDEBAR
@@ -249,8 +300,14 @@ with st.sidebar:
     )
 
     st.markdown("---")
-
-    st.markdown("🟢 System Online")
+    problems = run_prechecks()
+    if problems:
+        st.markdown("🔴 Issues Detected")
+        with st.expander("View details"):
+            for p in problems:
+                st.error(p)
+    else:
+        st.markdown("🟢 System Ready")
 
 
 # ============================================================
