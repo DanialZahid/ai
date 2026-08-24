@@ -156,6 +156,9 @@ ATTENDANCE_PATH = "data/attendance.csv"
 os.makedirs(DATASET_DIR, exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
+if "show_status" not in st.session_state:
+    st.session_state.show_status = False
+
 # ============================================================
 # FACE CASCADE
 # ============================================================
@@ -167,7 +170,6 @@ face_cascade = cv2.CascadeClassifier(
 # ============================================================
 # FACE DETECTION
 # ============================================================
-
 
 def detect_face_gray(image_pil):
     """Convert PIL image to grayscale numpy,
@@ -198,11 +200,9 @@ def detect_face_gray(image_pil):
         (200, 200),
     )
 
-
 # ============================================================
 # LABEL FUNCTIONS
 # ============================================================
-
 
 def load_labels():
     if os.path.exists(LABELS_PATH):
@@ -217,57 +217,96 @@ def save_labels(df):
         index=False,
     )
 
-# ============================================================
-# STARTUP PRECHECKS
-# ============================================================
-
-def run_prechecks():
-    """Check for the most common environment issues up front, so problems
-    surface clearly at startup instead of crashing mid-action.
-    """
-
-    problems = []
-
-    # 1. Face detection data file actually loaded
-    if face_cascade.empty():
-        problems.append(
-            "Face detection data failed to load. Fix: "
-            "pip uninstall opencv-python opencv-contrib-python -y && "
-            "pip install opencv-contrib-python==4.10.0.84"
-        )
-
-    # 2. LBPH recognizer available
-    # Only ships with opencv-contrib, not plain opencv-python
-    if not hasattr(cv2, "face"):
-        problems.append(
-            "cv2.face module missing (wrong OpenCV package installed). Fix: "
-            "pip uninstall opencv-python opencv-contrib-python -y && "
-            "pip install opencv-contrib-python==4.10.0.84"
-        )
-
-    # 3. dataset/ and data/ folders are actually writable
-    for folder in (DATASET_DIR, "data"):
-        try:
-            test_file = os.path.join(
-                folder,
-                ".write_test",
-            )
-
-            with open(test_file, "w") as f:
-                f.write("ok")
-
-            os.remove(test_file)
-
-        except Exception:
-            problems.append(
-                f"Cannot write to '{folder}/' folder — likely a "
-                f"permissions-restricted campus account. Try running "
-                f"the app from a folder you fully own, e.g. Desktop, "
-                f"not a shared/managed drive."
-            )
-
     return problems
 
+# ============================================================
+# SYSTEM STATUS
+# ============================================================
+
+STATUS_STYLE = {
+    "ok": ("✅", "OK"),
+    "warning": ("⚠️", "Warning"),
+    "error": ("❌", "Error"),
+    "info": ("ℹ️", "Info"),
+}
+
+def get_status_checks():
+    checks = []
+
+    if face_cascade.empty():
+        checks.append({"name": "Face Detection Engine", "status": "error",
+            "detail": "The Haar Cascade face-detection file failed to load — face detection won't work.",
+            "fix": "pip uninstall opencv-python opencv-contrib-python -y && pip install opencv-contrib-python==4.10.0.84"})
+    else:
+        checks.append({"name": "Face Detection Engine", "status": "ok",
+            "detail": "Haar Cascade classifier loaded successfully.", "fix": None})
+
+    if not hasattr(cv2, "face"):
+        checks.append({"name": "Face Recognition Module", "status": "error",
+            "detail": "cv2.face is missing — model training and recognition won't work.",
+            "fix": "pip uninstall opencv-python opencv-contrib-python -y && pip install opencv-contrib-python==4.10.0.84"})
+    else:
+        checks.append({"name": "Face Recognition Module", "status": "ok",
+            "detail": "LBPH recognizer module is available.", "fix": None})
+
+    for label, folder in [("Dataset Folder", DATASET_DIR), ("Data Folder", "data")]:
+        try:
+            test_file = os.path.join(folder, ".write_test")
+            with open(test_file, "w") as f:
+                f.write("ok")
+            os.remove(test_file)
+            checks.append({"name": f"{label} ({folder}/)", "status": "ok",
+                "detail": "Folder is writable.", "fix": None})
+        except Exception:
+            checks.append({"name": f"{label} ({folder}/)", "status": "error",
+                "detail": f"Cannot write to '{folder}/'. Common on locked-down campus accounts.",
+                "fix": "Run the app from a folder you fully own (e.g. Desktop), not a shared/managed drive."})
+
+    labels = load_labels()
+    if labels.empty:
+        checks.append({"name": "Registered Students", "status": "warning",
+            "detail": "No students registered yet.",
+            "fix": "Go to 'Register Student' to add at least one before training."})
+    else:
+        checks.append({"name": "Registered Students", "status": "ok",
+            "detail": f"{labels['name'].nunique()} student(s) registered.", "fix": None})
+
+    if os.path.exists(MODEL_PATH):
+        checks.append({"name": "Trained Model", "status": "ok",
+            "detail": "A trained recognition model was found.", "fix": None})
+    else:
+        checks.append({"name": "Trained Model", "status": "warning",
+            "detail": "No trained model found yet.",
+            "fix": "Go to 'Train Model' after registering students."})
+
+    if os.path.exists(ATTENDANCE_PATH):
+        checks.append({"name": "Attendance Log", "status": "ok",
+            "detail": "Attendance log file exists.", "fix": None})
+    else:
+        checks.append({"name": "Attendance Log", "status": "info",
+            "detail": "No attendance recorded yet.", "fix": None})
+
+    checks.append({"name": "Webcam Access", "status": "info",
+        "detail": "Webcam capture runs through your browser, not this Python process, "
+                  "so it can't be verified automatically here.",
+        "fix": "If no camera permission prompt appears, check browser site settings, "
+               "or use Upload Photo instead."})
+
+    return checks
+
+def render_status_page():
+    st.markdown(
+        '<div class="card"><div class="section-title">🩺 System Status</div>'
+        '<p style="color:#777;">Live check of the app\'s setup — for troubleshooting only. '
+        'Nothing here blocks you from using the app.</p></div>',
+        unsafe_allow_html=True
+    )
+    for check in get_status_checks():
+        icon, label_text = STATUS_STYLE[check["status"]]
+        with st.expander(f"{icon} {check['name']} — {label_text}"):
+            st.write(check["detail"])
+            if check["fix"]:
+                st.markdown(f"**Suggested fix:** {check['fix']}")
 
 # ============================================================
 # SIDEBAR
@@ -288,27 +327,28 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+    def _go_to_nav():
+        st.session_state.show_status = False
+
     mode = st.radio(
         "Choose action",
         [
-            "📝 Register Student",
+            "👤 Register Student",
             "🧠 Train Model",
             "📸 Take Attendance",
-            "📊 View Attendance",
+            "📊 View Attendance"
         ],
         label_visibility="collapsed",
+        key="nav_mode",
+        on_change=_go_to_nav
     )
 
     st.markdown("---")
-    problems = run_prechecks()
-    if problems:
-        st.markdown("🔴 Issues Detected")
-        with st.expander("View details"):
-            for p in problems:
-                st.error(p)
-    else:
-        st.markdown("🟢 System Ready")
+    _issues = sum(1 for c in get_status_checks() if c["status"] in ("warning", "error"))
+    _status_label = "🩺 System Status" + (f" ({_issues})" if _issues else "")
 
+    if st.button(_status_label, use_container_width=True):
+        st.session_state.show_status = True
 
 # ============================================================
 # TOP TITLE
@@ -328,12 +368,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # ============================================================
 # REGISTER STUDENT
 # ============================================================
 
-if mode == "📝 Register Student":
+if st.session_state.show_status:
+    render_status_page()
+elif mode == "👤 Register Student":
     st.markdown(
         '<div class="card">'
         '<div class="section-title">'
@@ -442,7 +483,6 @@ if mode == "📝 Register Student":
                 f"for best accuracy."
             )
 
-
 # ============================================================
 # TRAIN MODEL
 # ============================================================
@@ -515,7 +555,6 @@ elif mode == "🧠 Train Model":
                     f"images from "
                     f"{labels['name'].nunique()} students."
                 )
-
 
 # ============================================================
 # TAKE ATTENDANCE
@@ -633,7 +672,6 @@ elif mode == "📸 Take Attendance":
                         f"Try again or register this student."
                     )
 
-
 # ============================================================
 # VIEW ATTENDANCE
 # ============================================================
@@ -664,7 +702,6 @@ elif mode == "📊 View Attendance":
 
     else:
         st.info("No attendance recorded yet.")
-
 
 # ============================================================
 # FOOTER
