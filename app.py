@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 # ============================================================
-# PURPLE + WHITE UI
+# NAVY BLUE + TEAL UI
 # ============================================================
 
 st.markdown(
@@ -25,16 +25,16 @@ st.markdown(
     <style>
     /* Main page */
     .stApp {
-        background-color: #f8f6fc;
+        background-color: #f5f8fa;
     }
 
-    /* Sidebar */
+    /* Sidebar - Navy Blue Ombre */
     section[data-testid="stSidebar"] {
         background: linear-gradient(
             180deg,
-            #54257f 0%,
-            #6f3fa3 55%,
-            #8555b5 100%
+            #234f78 0%,
+            #123b61 55%,
+            #082b4d 100%
         );
     }
 
@@ -59,7 +59,7 @@ st.markdown(
 
     /* Main title */
     .page-title {
-        color: #54257f;
+        color: #123b61;
         font-size: 38px;
         font-weight: 800;
         margin-bottom: 5px;
@@ -76,13 +76,13 @@ st.markdown(
         background-color: white;
         padding: 25px;
         border-radius: 18px;
-        box-shadow: 0 5px 20px rgba(84, 37, 127, 0.10);
+        box-shadow: 0 5px 20px rgba(18, 59, 97, 0.12);
         margin-bottom: 20px;
     }
 
     /* Section heading */
     .section-title {
-        color: #54257f;
+        color: #123b61;
         font-size: 22px;
         font-weight: 700;
         margin-bottom: 15px;
@@ -90,7 +90,7 @@ st.markdown(
 
     /* Buttons */
     .stButton > button {
-        background-color: #6f3fa3;
+        background-color: #123b61;
         color: white;
         border: none;
         border-radius: 10px;
@@ -99,7 +99,7 @@ st.markdown(
     }
 
     .stButton > button:hover {
-        background-color: #54257f;
+        background-color: #082b4d;
         color: white;
     }
 
@@ -123,13 +123,13 @@ st.markdown(
         color: #236b38;
     }
 
-    /* Info */
+    /* Info - Teal */
     .info-card {
-        background-color: #f3edfa;
-        border-left: 5px solid #6f3fa3;
+        background-color: #e0f4f3;
+        border-left: 5px solid #159a9c;
         padding: 15px;
         border-radius: 10px;
-        color: #54257f;
+        color: #087f81;
     }
 
     /* Footer */
@@ -171,7 +171,6 @@ face_cascade = cv2.CascadeClassifier(
 # FACE DETECTION
 # ============================================================
 
-
 def detect_face_gray(image_pil):
     """Convert PIL image to grayscale numpy,
     detect largest face, return cropped face or None.
@@ -197,15 +196,13 @@ def detect_face_gray(image_pil):
     )
 
     return cv2.resize(
-        gray[y : y + h, x : x + w],
+        gray[y:y + h, x:x + w],
         (200, 200),
     )
-
 
 # ============================================================
 # LABEL FUNCTIONS
 # ============================================================
-
 
 def load_labels():
     if os.path.exists(LABELS_PATH):
@@ -213,14 +210,16 @@ def load_labels():
 
     return pd.DataFrame(columns=["id", "name"])
 
-
 def save_labels(df):
-    df.to_csv(LABELS_PATH, index=False)
-
+    df.to_csv(
+        LABELS_PATH,
+        index=False,
+    )
 
 # ============================================================
 # SYSTEM STATUS
 # ============================================================
+
 STATUS_STYLE = {
     "ok": ("✅", "OK"),
     "warning": ("⚠️", "Warning"),
@@ -232,66 +231,119 @@ def get_status_checks():
     checks = []
 
     if face_cascade.empty():
-        checks.append({"name": "Face Detection Engine", "status": "error",
+        checks.append({
+            "name": "Face Detection Engine",
+            "status": "error",
             "detail": "The Haar Cascade face-detection file failed to load — face detection won't work.",
-            "fix": "pip uninstall opencv-python opencv-contrib-python -y && pip install opencv-contrib-python==4.10.0.84"})
+            "fix": "pip uninstall opencv-python opencv-contrib-python -y && pip install opencv-contrib-python==4.10.0.84"
+        })
     else:
-        checks.append({"name": "Face Detection Engine", "status": "ok",
-            "detail": "Haar Cascade classifier loaded successfully.", "fix": None})
+        checks.append({
+            "name": "Face Detection Engine",
+            "status": "ok",
+            "detail": "Haar Cascade classifier loaded successfully.",
+            "fix": None
+        })
 
     if not hasattr(cv2, "face"):
-        checks.append({"name": "Face Recognition Module", "status": "error",
+        checks.append({
+            "name": "Face Recognition Module",
+            "status": "error",
             "detail": "cv2.face is missing — model training and recognition won't work.",
-            "fix": "pip uninstall opencv-python opencv-contrib-python -y && pip install opencv-contrib-python==4.10.0.84"})
+            "fix": "pip uninstall opencv-python opencv-contrib-python -y && pip install opencv-contrib-python==4.10.0.84"
+        })
     else:
-        checks.append({"name": "Face Recognition Module", "status": "ok",
-            "detail": "LBPH recognizer module is available.", "fix": None})
+        checks.append({
+            "name": "Face Recognition Module",
+            "status": "ok",
+            "detail": "LBPH recognizer module is available.",
+            "fix": None
+        })
 
-    for label, folder in [("Dataset Folder", DATASET_DIR), ("Data Folder", "data")]:
+    for label, folder in [
+        ("Dataset Folder", DATASET_DIR),
+        ("Data Folder", "data")
+    ]:
         try:
             test_file = os.path.join(folder, ".write_test")
+
             with open(test_file, "w") as f:
                 f.write("ok")
+
             os.remove(test_file)
-            checks.append({"name": f"{label} ({folder}/)", "status": "ok",
-                "detail": "Folder is writable.", "fix": None})
+
+            checks.append({
+                "name": f"{label} ({folder}/)",
+                "status": "ok",
+                "detail": "Folder is writable.",
+                "fix": None
+            })
+
         except Exception:
-            checks.append({"name": f"{label} ({folder}/)", "status": "error",
+            checks.append({
+                "name": f"{label} ({folder}/)",
+                "status": "error",
                 "detail": f"Cannot write to '{folder}/'. Common on locked-down campus accounts.",
-                "fix": "Run the app from a folder you fully own (e.g. Desktop), not a shared/managed drive."})
+                "fix": "Run the app from a folder you fully own (e.g. Desktop), not a shared/managed drive."
+            })
 
     labels = load_labels()
+
     if labels.empty:
-        checks.append({"name": "Registered Students", "status": "warning",
+        checks.append({
+            "name": "Registered Students",
+            "status": "warning",
             "detail": "No students registered yet.",
-            "fix": "Go to 'Register Student' to add at least one before training."})
+            "fix": "Go to 'Register Student' to add at least one before training."
+        })
     else:
-        checks.append({"name": "Registered Students", "status": "ok",
-            "detail": f"{labels['name'].nunique()} student(s) registered.", "fix": None})
+        checks.append({
+            "name": "Registered Students",
+            "status": "ok",
+            "detail": f"{labels['name'].nunique()} student(s) registered.",
+            "fix": None
+        })
 
     if os.path.exists(MODEL_PATH):
-        checks.append({"name": "Trained Model", "status": "ok",
-            "detail": "A trained recognition model was found.", "fix": None})
+        checks.append({
+            "name": "Trained Model",
+            "status": "ok",
+            "detail": "A trained recognition model was found.",
+            "fix": None
+        })
     else:
-        checks.append({"name": "Trained Model", "status": "warning",
+        checks.append({
+            "name": "Trained Model",
+            "status": "warning",
             "detail": "No trained model found yet.",
-            "fix": "Go to 'Train Model' after registering students."})
+            "fix": "Go to 'Train Model' after registering students."
+        })
 
     if os.path.exists(ATTENDANCE_PATH):
-        checks.append({"name": "Attendance Log", "status": "ok",
-            "detail": "Attendance log file exists.", "fix": None})
+        checks.append({
+            "name": "Attendance Log",
+            "status": "ok",
+            "detail": "Attendance log file exists.",
+            "fix": None
+        })
     else:
-        checks.append({"name": "Attendance Log", "status": "info",
-            "detail": "No attendance recorded yet.", "fix": None})
+        checks.append({
+            "name": "Attendance Log",
+            "status": "info",
+            "detail": "No attendance recorded yet.",
+            "fix": None
+        })
 
-    checks.append({"name": "Webcam Access", "status": "info",
+    checks.append({
+        "name": "Webcam Access",
+        "status": "info",
         "detail": "Webcam capture runs through your browser, not this Python process, "
                   "so it can't be verified automatically here.",
         "fix": "If no camera permission prompt appears, check browser site settings, "
-               "or use Upload Photo instead."})
+               "or use Upload Photo instead."
+    })
 
     return checks
-
 
 def render_status_page():
     st.markdown(
@@ -300,19 +352,22 @@ def render_status_page():
         'Nothing here blocks you from using the app.</p></div>',
         unsafe_allow_html=True
     )
+
     for check in get_status_checks():
         icon, label_text = STATUS_STYLE[check["status"]]
+
         with st.expander(f"{icon} {check['name']} — {label_text}"):
             st.write(check["detail"])
+
             if check["fix"]:
                 st.markdown(f"**Suggested fix:** {check['fix']}")
-
 
 # ============================================================
 # SIDEBAR
 # ============================================================
 
 with st.sidebar:
+
     st.markdown(
         '<div class="sidebar-title">'
         "📷 SMART ATTENDANCE"
@@ -344,12 +399,19 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    _issues = sum(1 for c in get_status_checks() if c["status"] in ("warning", "error"))
-    _status_label = "🩺 System Status" + (f" ({_issues})" if _issues else "")
+
+    _issues = sum(
+        1
+        for c in get_status_checks()
+        if c["status"] in ("warning", "error")
+    )
+
+    _status_label = "🩺 System Status" + (
+        f" ({_issues})" if _issues else ""
+    )
 
     if st.button(_status_label, use_container_width=True):
         st.session_state.show_status = True
-
 
 # ============================================================
 # TOP TITLE
@@ -369,14 +431,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # ============================================================
 # REGISTER STUDENT
 # ============================================================
 
 if st.session_state.show_status:
+
     render_status_page()
+
 elif mode == "👤 Register Student":
+
     st.markdown(
         '<div class="card">'
         '<div class="section-title">'
@@ -389,6 +453,7 @@ elif mode == "👤 Register Student":
     col1, col2 = st.columns([1, 1.5])
 
     with col1:
+
         st.markdown(
             '<div class="card">',
             unsafe_allow_html=True,
@@ -410,6 +475,7 @@ elif mode == "👤 Register Student":
         )
 
     with col2:
+
         st.markdown(
             '<div class="card">',
             unsafe_allow_html=True,
@@ -423,23 +489,28 @@ elif mode == "👤 Register Student":
         )
 
     if photo and name:
+
         face = detect_face_gray(Image.open(photo))
 
         if face is None:
+
             st.error(
                 "No face detected. "
                 "Try again with better lighting/angle."
             )
 
         else:
+
             labels = load_labels()
 
             if name in labels["name"].values:
+
                 student_id = labels[
                     labels["name"] == name
                 ]["id"].values[0]
 
             else:
+
                 student_id = len(labels)
 
                 labels = pd.concat(
@@ -485,12 +556,12 @@ elif mode == "👤 Register Student":
                 f"for best accuracy."
             )
 
-
 # ============================================================
 # TRAIN MODEL
 # ============================================================
 
 elif mode == "🧠 Train Model":
+
     st.markdown(
         '<div class="card">'
         '<div class="section-title">'
@@ -505,16 +576,20 @@ elif mode == "🧠 Train Model":
     )
 
     if st.button("🧠 Train Now"):
+
         labels = load_labels()
 
         if labels.empty:
+
             st.error("No students registered yet.")
 
         else:
+
             faces = []
             ids = []
 
             for _, row in labels.iterrows():
+
                 student_dir = os.path.join(
                     DATASET_DIR,
                     str(row["id"]),
@@ -524,6 +599,7 @@ elif mode == "🧠 Train Model":
                     continue
 
                 for fname in os.listdir(student_dir):
+
                     img = cv2.imread(
                         os.path.join(
                             student_dir,
@@ -539,9 +615,11 @@ elif mode == "🧠 Train Model":
                     ids.append(int(row["id"]))
 
             if len(faces) == 0:
+
                 st.error("No training images found.")
 
             else:
+
                 recognizer = (
                     cv2.face.LBPHFaceRecognizer_create()
                 )
@@ -559,12 +637,12 @@ elif mode == "🧠 Train Model":
                     f"{labels['name'].nunique()} students."
                 )
 
-
 # ============================================================
 # TAKE ATTENDANCE
 # ============================================================
 
 elif mode == "📸 Take Attendance":
+
     st.markdown(
         '<div class="card">'
         '<div class="section-title">'
@@ -578,21 +656,26 @@ elif mode == "📸 Take Attendance":
     )
 
     if not os.path.exists(MODEL_PATH):
+
         st.error(
             "No trained model found. "
             "Register students and train the model first."
         )
 
     else:
+
         photo = st.camera_input("📸 Look at the camera")
 
         if photo:
+
             face = detect_face_gray(Image.open(photo))
 
             if face is None:
+
                 st.error("No face detected. Try again.")
 
             else:
+
                 recognizer = (
                     cv2.face.LBPHFaceRecognizer_create()
                 )
@@ -609,6 +692,7 @@ elif mode == "📸 Take Attendance":
 
                 # LBPH: lower confidence = better match
                 if confidence < 70 and not match.empty:
+
                     name = match["name"].values[0]
 
                     st.success(
@@ -620,9 +704,11 @@ elif mode == "📸 Take Attendance":
                     today = str(date.today())
 
                     if os.path.exists(ATTENDANCE_PATH):
+
                         att = pd.read_csv(ATTENDANCE_PATH)
 
                     else:
+
                         att = pd.DataFrame(
                             columns=[
                                 "name",
@@ -637,12 +723,14 @@ elif mode == "📸 Take Attendance":
                     ).any()
 
                     if already_marked:
+
                         st.info(
                             f"{name} is already "
                             "marked present today."
                         )
 
                     else:
+
                         new_row = {
                             "name": name,
                             "date": today,
@@ -669,6 +757,7 @@ elif mode == "📸 Take Attendance":
                         )
 
                 else:
+
                     st.error(
                         f"Face not recognized "
                         f"(confidence score: "
@@ -676,12 +765,12 @@ elif mode == "📸 Take Attendance":
                         f"Try again or register this student."
                     )
 
-
 # ============================================================
 # VIEW ATTENDANCE
 # ============================================================
 
 elif mode == "📊 View Attendance":
+
     st.markdown(
         '<div class="card">'
         '<div class="section-title">'
@@ -695,6 +784,7 @@ elif mode == "📊 View Attendance":
     )
 
     if os.path.exists(ATTENDANCE_PATH):
+
         df = pd.read_csv(ATTENDANCE_PATH)
 
         st.dataframe(
@@ -706,8 +796,8 @@ elif mode == "📊 View Attendance":
         )
 
     else:
-        st.info("No attendance recorded yet.")
 
+        st.info("No attendance recorded yet.")
 
 # ============================================================
 # FOOTER
