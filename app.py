@@ -171,6 +171,7 @@ face_cascade = cv2.CascadeClassifier(
 # FACE DETECTION
 # ============================================================
 
+
 def detect_face_gray(image_pil):
     """Convert PIL image to grayscale numpy,
     detect largest face, return cropped face or None.
@@ -200,9 +201,11 @@ def detect_face_gray(image_pil):
         (200, 200),
     )
 
+
 # ============================================================
 # LABEL FUNCTIONS
 # ============================================================
+
 
 def load_labels():
     if os.path.exists(LABELS_PATH):
@@ -212,17 +215,12 @@ def load_labels():
 
 
 def save_labels(df):
-    df.to_csv(
-        LABELS_PATH,
-        index=False,
-    )
+    df.to_csv(LABELS_PATH, index=False)
 
-    return problems
 
 # ============================================================
 # SYSTEM STATUS
 # ============================================================
-
 STATUS_STYLE = {
     "ok": ("✅", "OK"),
     "warning": ("⚠️", "Warning"),
@@ -294,6 +292,7 @@ def get_status_checks():
 
     return checks
 
+
 def render_status_page():
     st.markdown(
         '<div class="card"><div class="section-title">🩺 System Status</div>'
@@ -307,6 +306,7 @@ def render_status_page():
             st.write(check["detail"])
             if check["fix"]:
                 st.markdown(f"**Suggested fix:** {check['fix']}")
+
 
 # ============================================================
 # SIDEBAR
@@ -350,6 +350,7 @@ with st.sidebar:
     if st.button(_status_label, use_container_width=True):
         st.session_state.show_status = True
 
+
 # ============================================================
 # TOP TITLE
 # ============================================================
@@ -367,6 +368,7 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True,
 )
+
 
 # ============================================================
 # REGISTER STUDENT
@@ -483,6 +485,7 @@ elif mode == "👤 Register Student":
                 f"for best accuracy."
             )
 
+
 # ============================================================
 # TRAIN MODEL
 # ============================================================
@@ -555,6 +558,7 @@ elif mode == "🧠 Train Model":
                     f"images from "
                     f"{labels['name'].nunique()} students."
                 )
+
 
 # ============================================================
 # TAKE ATTENDANCE
@@ -672,6 +676,7 @@ elif mode == "📸 Take Attendance":
                         f"Try again or register this student."
                     )
 
+
 # ============================================================
 # VIEW ATTENDANCE
 # ============================================================
@@ -702,6 +707,7 @@ elif mode == "📊 View Attendance":
 
     else:
         st.info("No attendance recorded yet.")
+
 
 # ============================================================
 # FOOTER
