@@ -44,17 +44,18 @@ st.markdown(
 
     /* Sidebar heading */
     .sidebar-title {
-        text-align: center;
+        text-align: left;
         font-size: 24px;
         font-weight: 800;
-        padding: 18px 5px 5px 5px;
+        padding: 18px 5px 5px 14px;
     }
 
     .sidebar-subtitle {
-        text-align: center;
+        text-align: left;
         font-size: 12px;
         opacity: 0.85;
         margin-bottom: 25px;
+        padding-left: 14px;
     }
 
     /* Main title */
@@ -100,6 +101,35 @@ st.markdown(
 
     .stButton > button:hover {
         background-color: #082b4d;
+        color: white;
+    }
+
+    section[data-testid="stSidebar"] > div:first-child {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    .sidebar-bottom-anchor {
+        margin-top: auto;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button {
+        border-radius: 8px;
+        text-align: left;
+        justify-content: flex-start;
+        padding: 10px 14px;
+        margin-bottom: 4px;
+        font-weight: 500;
+        background-color: transparent;
+    }
+
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        background-color: rgba(255, 255, 255, 0.12);
+    }
+
+    section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+        background-color: rgba(255, 255, 255, 0.18);
         color: white;
     }
 
@@ -174,6 +204,11 @@ face_cascade = cv2.CascadeClassifier(
 def detect_face_gray(image_pil):
     """Convert PIL image to grayscale numpy,
     detect largest face, return cropped face or None.
+
+    Histogram equalization is applied so that both training and recognition
+    always see faces normalized for lighting/contrast the same way — LBPH
+    is sensitive to lighting differences, and this keeps training/predict
+    inputs consistent regardless of how a given photo was lit.
     """
 
     img = np.array(image_pil.convert("RGB"))
@@ -195,10 +230,12 @@ def detect_face_gray(image_pil):
         key=lambda f: f[2] * f[3],
     )
 
-    return cv2.resize(
+    face = cv2.resize(
         gray[y:y + h, x:x + w],
         (200, 200),
     )
+
+    return cv2.equalizeHist(face)
 
 # ============================================================
 # LABEL FUNCTIONS
@@ -215,6 +252,34 @@ def save_labels(df):
         LABELS_PATH,
         index=False,
     )
+
+
+def get_student_photo(student_id):
+    """Return the path to a registered student's first saved photo (used as
+    their headshot elsewhere in the app), or None if they have no photos."""
+    try:
+        student_dir = os.path.join(DATASET_DIR, str(int(student_id)))
+    except (ValueError, TypeError):
+        return None
+
+    if not os.path.isdir(student_dir):
+        return None
+
+    files = sorted(os.listdir(student_dir))
+    if not files:
+        return None
+
+    return os.path.join(student_dir, files[0])
+
+
+def get_student_id_by_name(name):
+    """Look up a student's id from their name, for attendance rows saved
+    before the id column existed."""
+    labels = load_labels()
+    match = labels[labels["name"] == name]
+    if match.empty:
+        return None
+    return match["id"].values[0]
 
 
 # ============================================================
@@ -385,6 +450,16 @@ def render_status_page():
 # SIDEBAR
 # ============================================================
 
+NAV_ITEMS = [
+    ("Register Student", ":material/person_add:"),
+    ("Train Model", ":material/model_training:"),
+    ("Take Attendance", ":material/photo_camera:"),
+    ("View Attendance", ":material/fact_check:"),
+]
+
+if "nav_mode" not in st.session_state:
+    st.session_state.nav_mode = NAV_ITEMS[0][0]
+
 with st.sidebar:
 
     st.markdown(
@@ -401,21 +476,22 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    def _go_to_nav():
-        st.session_state.show_status = False
+    for nav_label, nav_icon in NAV_ITEMS:
+        is_active = st.session_state.nav_mode == nav_label
 
-    mode = st.radio(
-        "Choose action",
-        [
-            "👤 Register Student",
-            "🧠 Train Model",
-            "📸 Take Attendance",
-            "📊 View Attendance"
-        ],
-        label_visibility="collapsed",
-        key="nav_mode",
-        on_change=_go_to_nav
-    )
+        if st.button(
+            nav_label,
+            icon=nav_icon,
+            key=f"nav_btn_{nav_label}",
+            use_container_width=True,
+            type="primary" if is_active else "secondary",
+        ):
+            st.session_state.nav_mode = nav_label
+            st.session_state.show_status = False
+
+    mode = st.session_state.nav_mode
+
+    st.markdown('<div class="sidebar-bottom-anchor"></div>', unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -425,11 +501,16 @@ with st.sidebar:
         if c["status"] in ("warning", "error")
     )
 
-    _status_label = "🩺 System Status" + (
+    _status_label = "System Status" + (
         f" ({_issues})" if _issues else ""
     )
 
-    if st.button(_status_label, use_container_width=True):
+    if st.button(
+        _status_label,
+        icon=":material/health_and_safety:",
+        use_container_width=True,
+        type="primary" if st.session_state.show_status else "secondary",
+    ):
         st.session_state.show_status = True
 
 # ============================================================
@@ -458,7 +539,7 @@ if st.session_state.show_status:
 
     render_status_page()
 
-elif mode == "👤 Register Student":
+elif mode == "Register Student":
 
     st.markdown(
         '<div class="card">'
@@ -473,11 +554,6 @@ elif mode == "👤 Register Student":
 
     with col1:
 
-        st.markdown(
-            '<div class="card">',
-            unsafe_allow_html=True,
-        )
-
         name = st.text_input("Student name")
 
         st.markdown(
@@ -488,24 +564,9 @@ elif mode == "👤 Register Student":
             unsafe_allow_html=True,
         )
 
-        st.markdown(
-            "</div>",
-            unsafe_allow_html=True,
-        )
-
     with col2:
 
-        st.markdown(
-            '<div class="card">',
-            unsafe_allow_html=True,
-        )
-
         photo = get_photo("Capture face", "register")
-
-        st.markdown(
-            "</div>",
-            unsafe_allow_html=True,
-        )
 
     if photo and name:
 
@@ -579,7 +640,7 @@ elif mode == "👤 Register Student":
 # TRAIN MODEL
 # ============================================================
 
-elif mode == "🧠 Train Model":
+elif mode == "Train Model":
 
     st.markdown(
         '<div class="card">'
@@ -660,7 +721,7 @@ elif mode == "🧠 Train Model":
 # TAKE ATTENDANCE
 # ============================================================
 
-elif mode == "📸 Take Attendance":
+elif mode == "Take Attendance":
 
     st.markdown(
         '<div class="card">'
@@ -709,16 +770,35 @@ elif mode == "📸 Take Attendance":
                     labels["id"] == label_id
                 ]
 
-                # LBPH: lower confidence = better match
-                if confidence < 70 and not match.empty:
+                # LBPH: lower confidence = better match. This threshold is a
+                # tuned default, not a guarantee — recognition reliability
+                # depends heavily on registering 3-5 varied photos per
+                # student (see Register Student). The exact confidence
+                # value is logged to the console below for debugging,
+                # rather than shown in the UI.
+                RECOGNITION_THRESHOLD = 65
+
+                print(
+                    f"[Take Attendance] predicted label_id={label_id}, "
+                    f"confidence={confidence:.1f}, "
+                    f"threshold={RECOGNITION_THRESHOLD}, "
+                    f"matched_name={match['name'].values[0] if not match.empty else None}"
+                )
+
+                if confidence < RECOGNITION_THRESHOLD and not match.empty:
 
                     name = match["name"].values[0]
+                    student_id = match["id"].values[0]
 
-                    st.success(
-                        f"Recognized: {name} "
-                        f"(confidence score: "
-                        f"{confidence:.1f})"
-                    )
+                    photo_col, msg_col = st.columns([1, 4])
+
+                    with photo_col:
+                        headshot = get_student_photo(student_id)
+                        if headshot:
+                            st.image(headshot, width=70)
+
+                    with msg_col:
+                        st.success(f"Recognized: {name}")
 
                     today = str(date.today())
 
@@ -730,11 +810,15 @@ elif mode == "📸 Take Attendance":
 
                         att = pd.DataFrame(
                             columns=[
+                                "id",
                                 "name",
                                 "date",
                                 "time",
                             ]
                         )
+
+                    if "id" not in att.columns:
+                        att["id"] = att["name"].apply(get_student_id_by_name)
 
                     already_marked = (
                         (att["name"] == name)
@@ -751,6 +835,7 @@ elif mode == "📸 Take Attendance":
                     else:
 
                         new_row = {
+                            "id": student_id,
                             "name": name,
                             "date": today,
                             "time": datetime.now().strftime(
@@ -777,18 +862,23 @@ elif mode == "📸 Take Attendance":
 
                 else:
 
+                    print(
+                        f"[Take Attendance] REJECTED — confidence "
+                        f"{confidence:.1f} did not clear threshold "
+                        f"{RECOGNITION_THRESHOLD}, or no matching label."
+                    )
+
                     st.error(
-                        f"Face not recognized "
-                        f"(confidence score: "
-                        f"{confidence:.1f}). "
-                        f"Try again or register this student."
+                        "Face not recognized. If this student is "
+                        "registered, try again with better lighting — "
+                        "otherwise, register them first."
                     )
 
 # ============================================================
 # VIEW ATTENDANCE
 # ============================================================
 
-elif mode == "📊 View Attendance":
+elif mode == "View Attendance":
 
     st.markdown(
         '<div class="card">'
@@ -806,13 +896,34 @@ elif mode == "📊 View Attendance":
 
         df = pd.read_csv(ATTENDANCE_PATH)
 
-        st.dataframe(
-            df.sort_values(
-                ["date", "time"],
-                ascending=False,
-            ),
-            use_container_width=True,
-        )
+        if "id" not in df.columns:
+            df["id"] = df["name"].apply(get_student_id_by_name)
+
+        df = df.sort_values(["date", "time"], ascending=False).reset_index(drop=True)
+
+        def format_datetime(row):
+            dt = datetime.strptime(f"{row['date']} {row['time']}", "%Y-%m-%d %H:%M:%S")
+            return f"{dt.strftime('%b %d, %Y')}, {dt.strftime('%I:%M %p').lstrip('0')}"
+
+        header_photo, header_name, header_when = st.columns([1, 3, 3])
+        with header_name:
+            st.markdown("**Name**")
+        with header_when:
+            st.markdown("**Date & Time**")
+
+        for _, row in df.iterrows():
+            photo_col, name_col, when_col = st.columns([1, 3, 3])
+
+            with photo_col:
+                headshot = get_student_photo(row.get("id"))
+                if headshot:
+                    st.image(headshot, width=45)
+
+            with name_col:
+                st.write(row["name"])
+
+            with when_col:
+                st.write(format_datetime(row))
 
     else:
 
